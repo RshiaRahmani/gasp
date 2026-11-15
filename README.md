@@ -23,6 +23,15 @@ A local macOS drag-and-drop web UI for [apple-aiml-research/ml-sharp](https://gi
 
    > **Note:** On the first prediction, `ml-sharp` downloads its model checkpoint (~2.6 GB) to `~/.cache/torch/hub/checkpoints/`.
 
+## Viewing on Your Phone (Tailscale + Gyroscope)
+
+1. Start the app (`./start.sh`).
+2. Expose it over HTTPS on your Tailnet:
+   ```bash
+   tailscale serve 8765
+   ```
+3. Open the `https://<your-mac>.ts.net` URL on your phone, load a `.ply`, and tap **Phone Gyro: Off** in the bottom-left of the viewer to explore by moving your phone.
+
 ## Storage & Cleanup
 
 - You can view disk usage and delete generated jobs or the model cache directly from the **Storage & Cache** panel in the UI.

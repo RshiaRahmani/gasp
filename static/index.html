@@ -23,6 +23,7 @@
       background: var(--bg);
       color: var(--text);
       height: 100vh;
+      height: 100dvh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
@@ -270,7 +271,44 @@
       padding: 8px 12px;
       font-size: 12px;
       color: var(--muted);
-      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .viewer-hud button {
+      pointer-events: auto;
+    }
+    .viewer-wrap.is-fullscreen {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      width: 100vw;
+      height: 100dvh;
+    }
+    @media (max-width: 768px) {
+      header {
+        padding: 10px 14px;
+      }
+      header div {
+        display: none;
+      }
+      .main {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+      }
+      .sidebar {
+        border-right: none;
+        border-bottom: 1px solid var(--panel-border);
+        max-height: 38dvh;
+        padding: 12px;
+      }
+      .viewer-hud {
+        bottom: 10px;
+        left: 10px;
+        right: 10px;
+        justify-content: space-between;
+        flex-wrap: wrap;
+      }
     }
   </style>
 </head>
@@ -332,7 +370,13 @@
         <h2>3D Gaussian Splat Viewer</h2>
         <p>Drag and drop a photo on the left to generate a 3D Gaussian Splatting <code>.ply</code> file and inspect it in 3D here.</p>
       </div>
-      <div class="viewer-hud">Drag to orbit · Scroll to zoom · Right-drag to pan</div>
+      <div class="viewer-hud">
+        <span>Drag to orbit · Scroll to zoom</span>
+        <div style="display:flex;gap:6px;">
+          <button id="gyro-btn">Gyro: Off</button>
+          <button id="fs-btn">Fullscreen</button>
+        </div>
+      </div>
     </main>
   </div>
 
@@ -346,6 +390,7 @@
   </script>
 
   <script type="module">
+    import * as THREE from 'three';
     import * as GaussianSplats3D from '@mkkellogg/gaussian-splats-3d';
 
     const dropzone = document.getElementById('dropzone');
@@ -357,6 +402,115 @@
 
     let viewer = null;
     let activeUrl = null;
+    let gyroEnabled = false;
+    let gyroStartQuat = null;
+    let gyroBaseTargetOffset = null;
+    const smoothDir = new THREE.Vector3();
+
+    const gyroBtn = document.getElementById('gyro-btn');
+
+    function getDeviceQuaternion(alphaDeg, betaDeg, gammaDeg) {
+      const alpha = THREE.MathUtils.degToRad(alphaDeg || 0);
+      const beta = THREE.MathUtils.degToRad(betaDeg || 0);
+      const gamma = THREE.MathUtils.degToRad(gammaDeg || 0);
+      const orient = THREE.MathUtils.degToRad(window.screen?.orientation?.angle || window.orientation || 0);
+
+      const euler = new THREE.Euler(beta, alpha, -gamma, 'YXZ');
+      const q = new THREE.Quaternion().setFromEuler(euler);
+      const q1 = new THREE.Quaternion(-Math.sqrt(0.5), 0, 0, Math.sqrt(0.5));
+      q.multiply(q1);
+      const q0 = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), -orient);
+      q.multiply(q0);
+      return q;
+    }
+
+    function handleDeviceOrientation(e) {
+      if (!gyroEnabled || !viewer || !viewer.camera || e.alpha === null) return;
+      const qCurrent = getDeviceQuaternion(e.alpha, e.beta, e.gamma);
+      if (!gyroStartQuat) {
+        gyroStartQuat = qCurrent.clone();
+        const camPos = viewer.camera.position;
+        const target = viewer.controls ? viewer.controls.target : new THREE.Vector3(0, 0, 2);
+        gyroBaseTargetOffset = target.clone().sub(camPos);
+        if (gyroBaseTargetOffset.lengthSq() < 0.001) gyroBaseTargetOffset.set(0, 0, 2);
+        smoothDir.copy(gyroBaseTargetOffset);
+        return;
+      }
+
+      const qDelta = gyroStartQuat.clone().invert().multiply(qCurrent);
+      // Convert from Three.js Y-up to OpenCV Y-down cameraUp [0, -1, 0]
+      const qFlip = new THREE.Quaternion(qDelta.x, -qDelta.y, -qDelta.z, qDelta.w);
+      const desiredDir = gyroBaseTargetOffset.clone().applyQuaternion(qFlip);
+      smoothDir.lerp(desiredDir, 0.25);
+
+      if (viewer.controls) {
+        viewer.controls.target.copy(viewer.camera.position).add(smoothDir);
+        viewer.controls.update();
+      }
+    }
+
+    gyroBtn.onclick = async () => {
+      if (!gyroEnabled) {
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+          try {
+            const perm = await DeviceOrientationEvent.requestPermission();
+            if (perm !== 'granted') {
+              alert('Motion permission denied. Make sure you are using HTTPS (e.g. Tailscale Serve).');
+              return;
+            }
+          } catch (err) {
+            alert('Could not request motion permission: ' + err.message);
+            return;
+          }
+        }
+        gyroStartQuat = null;
+        gyroBaseTargetOffset = null;
+        gyroEnabled = true;
+        gyroBtn.textContent = 'Gyro: On';
+        gyroBtn.classList.add('primary');
+        window.addEventListener('deviceorientation', handleDeviceOrientation);
+      } else {
+        gyroEnabled = false;
+        gyroBtn.textContent = 'Gyro: Off';
+        gyroBtn.classList.remove('primary');
+        window.removeEventListener('deviceorientation', handleDeviceOrientation);
+      }
+    };
+
+    const fsBtn = document.getElementById('fs-btn');
+    const viewerWrap = document.querySelector('.viewer-wrap');
+    let isFullscreen = false;
+
+    fsBtn.onclick = async () => {
+      if (!isFullscreen) {
+        if (viewerWrap.requestFullscreen) {
+          try { await viewerWrap.requestFullscreen(); } catch {}
+        } else if (viewerWrap.webkitRequestFullscreen) {
+          try { viewerWrap.webkitRequestFullscreen(); } catch {}
+        }
+        viewerWrap.classList.add('is-fullscreen');
+        isFullscreen = true;
+        fsBtn.textContent = 'Exit Fullscreen';
+        fsBtn.classList.add('primary');
+      } else {
+        if (document.fullscreenElement && document.exitFullscreen) {
+          try { await document.exitFullscreen(); } catch {}
+        }
+        viewerWrap.classList.remove('is-fullscreen');
+        isFullscreen = false;
+        fsBtn.textContent = 'Fullscreen';
+        fsBtn.classList.remove('primary');
+      }
+    };
+
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement && isFullscreen) {
+        viewerWrap.classList.remove('is-fullscreen');
+        isFullscreen = false;
+        fsBtn.textContent = 'Fullscreen';
+        fsBtn.classList.remove('primary');
+      }
+    });
 
     function formatBytes(bytes) {
       if (bytes === 0) return '0 B';
