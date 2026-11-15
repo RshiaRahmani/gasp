@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SHARP 3DGS Studio</title>
+  <style>
+    :root {
+      --bg: #0b0c10;
+      --panel: #14161f;
+      --panel-border: #252836;
+      --text: #f1f3f9;
+      --muted: #8e95a8;
+      --accent: #4f8cff;
+      --accent-hover: #3b7bff;
+      --success: #34d399;
+      --danger: #f87171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(20, 22, 31, 0.85);
+      backdrop-filter: blur(12px);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    header h1 span.badge {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(79, 140, 255, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(79, 140, 255, 0.3);
+    }
+    .main {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      min-height: 0;
+    }
+    .sidebar {
+      border-right: 1px solid var(--panel-border);
+      background: var(--panel);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow-y: auto;
+    }
+    .dropzone {
+      border: 2px dashed #32374a;
+      border-radius: 14px;
+      padding: 28px 18px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      background: rgba(255, 255, 255, 0.02);
+    }
+    .dropzone:hover, .dropzone.dragover {
+      border-color: var(--accent);
+      background: rgba(79, 140, 255, 0.08);
+    }
+    .dropzone svg {
+      width: 36px;
+      height: 36px;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+    .dropzone p {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .dropzone small {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .status-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 14px;
+      font-size: 13px;
+      display: none;
+    }
+    .status-card.visible { display: block; }
+    .status-card.error { border-color: rgba(248, 113, 113, 0.4); color: var(--danger); }
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(79, 140, 255, 0.3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-right: 8px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .section-title {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      margin: 0 0 8px 0;
+    }
+    .job-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .job-item {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .job-item.active {
+      border-color: var(--accent);
+      background: rgba(79, 140, 255, 0.08);
+    }
+    .job-header {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .job-thumb {
+      width: 52px;
+      height: 52px;
+      border-radius: 8px;
+      object-fit: cover;
+      background: #1d202d;
+      border: 1px solid var(--panel-border);
+      flex-shrink: 0;
+    }
+    .job-info {
+      min-width: 0;
+      flex: 1;
+    }
+    .job-name {
+      font-size: 13px;
+      font-weight: 500;
+      word-break: break-all;
+    }
+    .job-meta {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .btn-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+      gap: 6px;
+    }
+    button, a.btn {
+      appearance: none;
+      border: 1px solid var(--panel-border);
+      background: #1d202d;
+      color: var(--text);
+      padding: 7px 10px;
+      border-radius: 7px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: background 0.15s, transform 0.08s;
+      white-space: nowrap;
+    }
+    button:active, a.btn:active { transform: scale(0.97); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button:hover, a.btn:hover { background: #272b3c; }
+    button.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    button.primary:hover { background: var(--accent-hover); }
+    button.danger {
+      border-color: rgba(248, 113, 113, 0.35);
+      color: var(--danger);
+      background: rgba(248, 113, 113, 0.08);
+    }
+    button.danger:hover { background: rgba(248, 113, 113, 0.18); }
+    .storage-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .storage-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: var(--muted);
+    }
+    .storage-row strong { color: var(--text); font-weight: 500; }
+    .viewer-wrap {
+      position: relative;
+      background: #07080c;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+    #viewer-container {
+      width: 100%;
+      height: 100%;
+    }
+    .viewer-empty {
+      position: absolute;
+      text-align: center;
+      color: var(--muted);
+      pointer-events: none;
+      max-width: 340px;
+      padding: 20px;
+    }
+    .viewer-empty h2 {
+      margin: 0 0 8px 0;
+      font-size: 16px;
+      color: var(--text);
+    }
+    .viewer-empty p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .viewer-hud {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      background: rgba(11, 12, 16, 0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 12px;
+      color: var(--muted);
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SHARP 3DGS Studio <span class="badge">Apple ml-sharp · Local</span></h1>
+    <div style="font-size: 12px; color: var(--muted);">Single-image to 3D Gaussian Splat (.ply)</div>
+  </header>
+
+  <div class="main">
+    <aside class="sidebar">
+      <div class="dropzone" id="dropzone">
+        <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+        </svg>
+        <p>Drop image(s) here</p>
+        <small>or click to browse · JPG, PNG, HEIC, WebP</small>
+        <input type="file" id="file-input" accept="image/*" multiple hidden />
+      </div>
+
+      <div class="status-card" id="status-card"></div>
+
+      <div>
+        <div class="section-title">Generated Splats</div>
+        <div class="job-list" id="job-list">
+          <div style="font-size: 12px; color: var(--muted);">No splats generated yet.</div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-title">Storage &amp; Cache</div>
+        <div class="storage-card">
+          <div class="storage-row">
+            <span>Generated Jobs</span>
+            <strong id="size-jobs">...</strong>
+          </div>
+          <div class="storage-row">
+            <span>Model Cache</span>
+            <strong id="size-cache">...</strong>
+          </div>
+          <div class="storage-row">
+            <span>Python Env (.venv)</span>
+            <strong id="size-venv">...</strong>
+          </div>
+          <div class="btn-row" style="margin-top: 4px;">
+            <button class="danger" id="clear-jobs-btn">Clear All Jobs</button>
+            <button class="danger" id="clear-cache-btn">Clear Model Cache</button>
+          </div>
+          <div style="font-size: 11px; color: var(--muted); line-height: 1.4;">
+            To remove <code>.venv</code>, stop the app and run <code>./manage.sh clean</code>.
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="viewer-wrap">
+      <div id="viewer-container"></div>
+      <div class="viewer-empty" id="viewer-empty">
+        <h2>3D Gaussian Splat Viewer</h2>
+        <p>Drag and drop a photo on the left to generate a 3D Gaussian Splatting <code>.ply</code> file and inspect it in 3D here.</p>
+      </div>
+      <div class="viewer-hud">Drag to orbit · Scroll to zoom · Right-drag to pan</div>
+    </main>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.169.0/build/three.module.js",
+        "@mkkellogg/gaussian-splats-3d": "https://unpkg.com/@mkkellogg/gaussian-splats-3d@0.4.7/build/gaussian-splats-3d.module.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as GaussianSplats3D from '@mkkellogg/gaussian-splats-3d';
+
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('file-input');
+    const statusCard = document.getElementById('status-card');
+    const jobList = document.getElementById('job-list');
+    const viewerContainer = document.getElementById('viewer-container');
+    const viewerEmpty = document.getElementById('viewer-empty');
+
+    let viewer = null;
+    let activeUrl = null;
+
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+      return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+    }
+
+    function setStatus(html, isError = false) {
+      statusCard.innerHTML = html;
+      statusCard.className = 'status-card visible' + (isError ? ' error' : '');
+    }
+
+    function clearStatus() {
+      statusCard.className = 'status-card';
+    }
+
+    async function loadSplat(url) {
+      activeUrl = url;
+      viewerEmpty.style.display = 'none';
+      if (viewer) {
+        try { await viewer.dispose(); } catch {}
+        viewerContainer.innerHTML = '';
+        viewer = null;
+      }
+
+      viewer = new GaussianSplats3D.Viewer({
+        rootElement: viewerContainer,
+        cameraUp: [0, -1, 0],
+        initialCameraPosition: [0, 0, -0.5],
+        initialCameraLookAt: [0, 0, 2.0],
+        sharedMemoryForWorkers: false,
+      });
+
+      try {
+        await viewer.addSplatScene(url, {
+          splatAlphaRemovalThreshold: 5,
+          showLoadingUI: true,
+        });
+        viewer.start();
+      } catch (err) {
+        console.error(err);
+        setStatus('Viewer error: ' + err.message, true);
+      }
+      renderJobs();
+    }
+
+    let cachedJobs = [];
+
+    async function fetchStorage() {
+      try {
+        const res = await fetch('/api/storage');
+        const data = await res.json();
+        document.getElementById('size-jobs').textContent = formatBytes(data.jobs_bytes || 0);
+        document.getElementById('size-cache').textContent = formatBytes(data.model_cache_bytes || 0);
+        document.getElementById('size-venv').textContent = formatBytes(data.venv_bytes || 0);
+      } catch {}
+    }
+
+    async function fetchJobs() {
+      const res = await fetch('/api/jobs');
+      const data = await res.json();
+      cachedJobs = data.jobs || [];
+      renderJobs();
+      fetchStorage();
+    }
+
+    function renderJobs() {
+      if (!cachedJobs.length) {
+        jobList.innerHTML = '<div style="font-size: 12px; color: var(--muted);">No splats generated yet.</div>';
+        return;
+      }
+      jobList.innerHTML = '';
+      for (const job of cachedJobs) {
+        for (const out of job.outputs) {
+          const item = document.createElement('div');
+          item.className = 'job-item' + (activeUrl === out.url ? ' active' : '');
+          const thumbHtml = out.preview_url
+            ? `<img class="job-thumb" src="${out.preview_url}" alt="${out.name}" loading="lazy" />`
+            : `<div class="job-thumb"></div>`;
+          item.innerHTML = `
+            <div class="job-header">
+              ${thumbHtml}
+              <div class="job-info">
+                <div class="job-name">${out.name}</div>
+                <div class="job-meta">${formatBytes(out.size_bytes)} · Job ${job.job_id}</div>
+              </div>
+            </div>
+            <div class="btn-row">
+              <button class="primary view-btn">View 3D</button>
+              <a class="btn" href="${out.url}" download="${out.name}">Download</a>
+              <button class="finder-btn">Finder</button>
+              <button class="danger delete-btn">Delete</button>
+            </div>
+          `;
+          item.querySelector('.view-btn').onclick = () => loadSplat(out.url);
+          item.querySelector('.finder-btn').onclick = () => fetch('/api/open-finder/' + job.job_id, { method: 'POST' });
+          item.querySelector('.delete-btn').onclick = async (e) => {
+            e.currentTarget.disabled = true;
+            e.currentTarget.textContent = '...';
+            await fetch('/api/jobs/' + job.job_id, { method: 'DELETE' });
+            await fetchJobs();
+          };
+          jobList.appendChild(item);
+        }
+      }
+    }
+
+    async function handleFiles(files) {
+      if (!files || !files.length) return;
+      const formData = new FormData();
+      for (const f of files) {
+        formData.append('files', f);
+      }
+
+      setStatus('<span class="spinner"></span>Running SHARP on ' + files.length + ' image(s)...<br><small style="color:var(--muted);display:block;margin-top:6px;">First run downloads the model checkpoint (~1.4 GB) to ~/.cache/torch/hub/checkpoints/</small>');
+
+      try {
+        const res = await fetch('/api/predict', {
+          method: 'POST',
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Prediction failed');
+        }
+        clearStatus();
+        await fetchJobs();
+        if (data.outputs && data.outputs.length > 0) {
+          loadSplat(data.outputs[0].url);
+        }
+      } catch (err) {
+        setStatus('Error: ' + err.message, true);
+      }
+    }
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => handleFiles(e.target.files));
+
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      handleFiles(e.dataTransfer.files);
+    });
+
+    document.getElementById('clear-jobs-btn').onclick = async () => {
+      if (!confirm('Delete all generated jobs and .ply files?')) return;
+      await fetch('/api/storage/clear-jobs', { method: 'POST' });
+      await fetchJobs();
+    };
+
+    document.getElementById('clear-cache-btn').onclick = async () => {
+      if (!confirm('Delete the cached SHARP model (~2.6 GB)? It will re-download on the next prediction.')) return;
+      await fetch('/api/storage/clear-cache', { method: 'POST' });
+      await fetchStorage();
+    };
+
+    fetchJobs();
+  </script>
+</body>
+</html>
